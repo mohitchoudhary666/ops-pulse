@@ -16,6 +16,7 @@ This is a portfolio project and learning tool. It is not affiliated with an empl
 - Shows swap, readable filesystem use, network counters, and uptime.
 - Reads NVIDIA GPU utilization, VRAM, and temperature when `nvidia-smi` is installed.
 - Lists failed systemd units and error-level journal messages from the last ten minutes.
+- Checks configured process names every five seconds and alerts when a watched application is not running.
 - Redacts common password, token, secret, API key, and authorization assignments in displayed journal lines.
 - Flags CPU, memory, and disk thresholds with configurable warning levels.
 - Provides a chat-style triage panel with read-only diagnostic suggestions; commands are never executed.
@@ -37,6 +38,19 @@ python -m uvicorn ops_pulse.app:app --host 127.0.0.1 --port 8765
 ```
 
 Open [http://127.0.0.1:8765](http://127.0.0.1:8765). The **Export incident report** button downloads `opspulse-incident-report.json` locally. Review the file before attaching it to an issue or sharing it externally.
+
+### Run continuously with systemd (Linux)
+
+After creating the virtual environment and installing dependencies above, copy the included user service to systemd and start it:
+
+```bash
+mkdir -p ~/.config/systemd/user
+cp deploy/systemd/opspulse.service ~/.config/systemd/user/opspulse.service
+systemctl --user daemon-reload
+systemctl --user enable --now opspulse.service
+```
+
+The example watches `nginx` and `postgres`; edit `OPSPULSE_WATCH_PROCESSES` in the unit for the process names used on your host. Check it with `systemctl --user status opspulse.service` and view logs with `journalctl --user -u opspulse.service`. It restarts the OpsPulse dashboard if that dashboard process crashes; it never restarts watched applications. To stop it, run `systemctl --user disable --now opspulse.service`.
 
 ## API
 
@@ -60,19 +74,22 @@ Set optional environment variables before starting the server:
 | `OPSPULSE_MEMORY_WARN` | `85` | Memory warning percentage |
 | `OPSPULSE_DISK_WARN` | `85` | Disk warning percentage |
 | `OPSPULSE_LOG_LINES` | `80` | Maximum journal lines collected |
+| `OPSPULSE_WATCH_PROCESSES` | empty | Comma-separated process names to monitor (for example, `nginx,postgres`) |
 
-Example: `OPSPULSE_CPU_WARN=75 OPSPULSE_DISK_WARN=90 python -m uvicorn ops_pulse.app:app --host 127.0.0.1 --port 8765`.
+Example: `OPSPULSE_CPU_WARN=75 OPSPULSE_DISK_WARN=90 OPSPULSE_WATCH_PROCESSES=nginx,postgres python -m uvicorn ops_pulse.app:app --host 127.0.0.1 --port 8765`.
+
+Process matching uses the exact process name or executable basename, case-insensitively. It reads neither command-line arguments nor environment variables, which can contain credentials. Checks are read-only; an application being absent produces an alert but is never started or restarted automatically. Up to 20 unique process names are monitored.
 
 ## Architecture
 
 ```text
-Linux host sensors ──> Python collector ──> in-memory rolling history
+Linux host sensors + configured process names ──> Python collector ──> in-memory rolling history
                              │                        │
                              ├── FastAPI JSON API <── dashboard (5s polling)
                              └── incident report ───> local JSON download
 ```
 
-Collection is read-only. The triage panel returns text guidance only. OpsPulse does not restart services, change configuration, run suggested commands, or transmit telemetry.
+Collection is read-only. Host and process checks repeat every five seconds while OpsPulse is running. The triage panel returns text guidance only. OpsPulse does not start or restart applications, change configuration, run suggested commands, or transmit telemetry.
 
 ## Safety and current limits
 
@@ -89,3 +106,4 @@ Issues and pull requests are welcome. Keep checks read-only by default, avoid up
 ## License
 
 MIT. See [LICENSE](LICENSE).
+
