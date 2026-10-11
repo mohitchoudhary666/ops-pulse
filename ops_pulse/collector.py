@@ -7,7 +7,7 @@ import re
 import shutil
 import subprocess
 import time
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from typing import Any
 
 import psutil
@@ -155,7 +155,7 @@ def collect_snapshot() -> dict[str, Any]:
     uptime = time.time() - psutil.boot_time()
     net = psutil.net_io_counters()
     return {
-        "timestamp": datetime.now(timezone.utc).isoformat(),
+        "timestamp": datetime.now(UTC).isoformat(),
         "hostname": os.uname().nodename if hasattr(os, "uname") else os.environ.get("COMPUTERNAME", "unknown"),
         "platform": os.name,
         "status": status,
@@ -172,3 +172,4 @@ def collect_snapshot() -> dict[str, Any]:
         "alerts": alerts,
         "thresholds": {"cpu_percent": CPU_WARN, "memory_percent": MEMORY_WARN, "disk_percent": DISK_WARN},
     }
+
