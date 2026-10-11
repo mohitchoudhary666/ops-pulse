@@ -6,6 +6,7 @@ import asyncio
 import logging
 from collections import deque
 from contextlib import asynccontextmanager, suppress
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
@@ -120,3 +121,4 @@ def incident_report(response: Response) -> dict[str, Any]:
 @app.get("/api/history")
 def metrics_history(limit: int = Query(default=60, ge=1, le=360)) -> dict[str, Any]:
     return {"points": list(history)[-limit:], "interval_seconds": 5}
+
