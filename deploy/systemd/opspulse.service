@@ -1,0 +1,17 @@
+[Unit]
+Description=OpsPulse local host monitoring dashboard
+After=network.target
+
+[Service]
+Type=simple
+WorkingDirectory=%h/ops-pulse
+Environment=OPSPULSE_WATCH_PROCESSES=nginx,postgres
+ExecStart=%h/ops-pulse/.venv/bin/uvicorn ops_pulse.app:app --host 127.0.0.1 --port 8765
+Restart=on-failure
+RestartSec=5
+NoNewPrivileges=true
+PrivateTmp=true
+
+[Install]
+WantedBy=default.target
+
