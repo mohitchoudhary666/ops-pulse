@@ -126,6 +126,35 @@ def _recent_errors() -> list[dict[str, str]]:
     return events[-LOG_LINES:]
 
 
+def _watched_applications() -> list[dict[str, Any]]:
+    """Check configured process names without reading command lines or changing processes."""
+    configured = os.getenv("OPSPULSE_WATCH_PROCESSES", "")
+    names = list(dict.fromkeys(name.strip() for name in configured.split(",") if name.strip()))[:20]
+    if not names:
+        return []
+
+    wanted = {name.casefold(): name for name in names}
+    counts = {name.casefold(): 0 for name in names}
+    try:
+        for process in psutil.process_iter(attrs=["name", "exe"]):
+            info = process.info
+            candidates = {str(info.get("name") or "").casefold()}
+            executable = str(info.get("exe") or "")
+            if executable:
+                candidates.add(os.path.basename(executable).casefold())
+            for candidate in candidates:
+                if candidate in counts:
+                    counts[candidate] += 1
+    except (psutil.Error, OSError):
+        # Partial process data is still useful; inaccessible processes are skipped.
+        pass
+
+    return [
+        {"name": wanted[key], "status": "running" if count else "stopped", "process_count": count}
+        for key, count in counts.items()
+    ]
+
+
 def collect_snapshot() -> dict[str, Any]:
     """Collect one point-in-time snapshot without making system changes."""
     started = time.monotonic()
@@ -137,6 +166,7 @@ def collect_snapshot() -> dict[str, Any]:
     services = _failed_services()
     errors = _recent_errors()
     gpu = _gpu_metrics()
+    applications = _watched_applications()
 
     alerts: list[dict[str, str]] = []
     if cpu >= CPU_WARN:
@@ -150,6 +180,9 @@ def collect_snapshot() -> dict[str, Any]:
         alerts.append({"severity": "critical", "source": "systemd", "message": f"{len(services)} failed service(s): {', '.join(services[:4])}."})
     if errors:
         alerts.append({"severity": "warning", "source": "system journal", "message": f"{len(errors)} error-level event(s) found in the last 10 minutes."})
+    stopped_apps = [application["name"] for application in applications if application["status"] == "stopped"]
+    if stopped_apps:
+        alerts.append({"severity": "warning", "source": "Applications", "message": f"Not running: {', '.join(stopped_apps[:4])}. Check the application logs and dependencies."})
 
     status = "critical" if any(a["severity"] == "critical" for a in alerts) else "warning" if alerts else "healthy"
     uptime = time.time() - psutil.boot_time()
@@ -166,6 +199,7 @@ def collect_snapshot() -> dict[str, Any]:
         "swap": {"total_bytes": swap.total, "used_bytes": swap.used, "percent": swap.percent},
         "disks": disks,
         "gpu": gpu,
+        "watched_applications": applications,
         "failed_services": services,
         "errors": errors,
         "network": {"bytes_sent": net.bytes_sent, "bytes_received": net.bytes_recv},
