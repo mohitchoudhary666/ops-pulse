@@ -20,7 +20,7 @@
 
 ## Quick start
 
-Requirements: Python 3.10+, Linux with systemd for service and journal checks, and `nvidia-smi` for NVIDIA metrics.
+Requirements: Python 3.11+, Linux with systemd for service and journal checks, and `nvidia-smi` for NVIDIA metrics.
 
 ```bash
 git clone https://github.com/mohitchoudhary666/ops-pulse.git
@@ -78,3 +78,4 @@ Issues and pull requests are welcome. Keep checks read-only by default, avoid up
 ## License
 
 MIT. See [LICENSE](LICENSE).
+
