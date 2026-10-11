@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+import logging
 from collections import deque
 from contextlib import asynccontextmanager, suppress
 from pathlib import Path
@@ -12,6 +13,8 @@ from fastapi import FastAPI, HTTPException, Query
 from fastapi.responses import HTMLResponse
 
 from .collector import collect_snapshot
+
+logger = logging.getLogger(__name__)
 
 ROOT = Path(__file__).parent
 history: deque[dict[str, Any]] = deque(maxlen=360)
@@ -25,9 +28,9 @@ async def _monitor_loop() -> None:
             snapshot = await asyncio.to_thread(collect_snapshot)
             latest = snapshot
             history.append(snapshot)
-        except Exception:
+        except Exception:  # noqa: BLE001 - keep the monitor loop alive after sensor failures
             # Keep the service alive if an optional host sensor is unavailable.
-            pass
+            logger.exception("Host metrics collection failed")
         await asyncio.sleep(5)
 
 
@@ -63,3 +66,4 @@ def snapshot() -> dict[str, Any]:
 @app.get("/api/history")
 def metrics_history(limit: int = Query(default=60, ge=1, le=360)) -> dict[str, Any]:
     return {"points": list(history)[-limit:], "interval_seconds": 5}
+
