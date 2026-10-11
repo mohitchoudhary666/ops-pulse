@@ -28,7 +28,7 @@ async def _monitor_loop() -> None:
             snapshot = await asyncio.to_thread(collect_snapshot)
             latest = snapshot
             history.append(snapshot)
-        except Exception:  # noqa: BLE001 - keep the monitor loop alive after sensor failures
+        except Exception:
             # Keep the service alive if an optional host sensor is unavailable.
             logger.exception("Host metrics collection failed")
         await asyncio.sleep(5)
