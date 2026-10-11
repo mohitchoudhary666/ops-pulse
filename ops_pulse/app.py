@@ -78,6 +78,7 @@ def incident_report(response: Response) -> dict[str, Any]:
         "Disk": "Check `df -h` and investigate large directories before removing files.",
         "systemd": "Inspect each failed unit with `systemctl status <unit>` before restarting it.",
         "system journal": "Review recent errors locally; redact host and user details before sharing.",
+        "Applications": "Check the application's own logs and dependencies before taking action.",
     }
     disk_summary = [
         {
@@ -107,6 +108,7 @@ def incident_report(response: Response) -> dict[str, Any]:
             "uptime_seconds": snapshot_data["uptime_seconds"],
             "disks": disk_summary,
             "failed_services": snapshot_data["failed_services"],
+            "watched_applications": snapshot_data["watched_applications"],
             "recent_errors": snapshot_data["errors"],
             "alerts": alerts,
             "thresholds": snapshot_data["thresholds"],
